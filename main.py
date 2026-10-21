@@ -28,30 +28,17 @@ PREDICT_EVERY = 2
 HOLD_SECONDS = 1.5
 REPEAT_GAP = 2.0
 
-# Kalau nanti ada kelas LAINNYA,
-# kelas tersebut dianggap UNKNOWN
-IGNORE_LABELS = {"LAINNYA"}
-
 
 # =========================
 # LOAD MODEL
 # =========================
 
-ckpt = torch.load(
-    MODEL_PATH,
-    map_location="cpu"
-)
+ckpt = torch.load(MODEL_PATH, map_location="cpu")
 
 labels = ckpt["labels"]
 
-model = SignLSTM(
-    len(labels)
-)
-
-model.load_state_dict(
-    ckpt["state_dict"]
-)
-
+model = SignLSTM(len(labels))
+model.load_state_dict(ckpt["state_dict"])
 model.eval()
 
 print("Label model:", labels)
@@ -77,19 +64,14 @@ options = HandLandmarkerOptions(
     min_tracking_confidence=0.5,
 )
 
-landmarker = HandLandmarker.create_from_options(
-    options
-)
+landmarker = HandLandmarker.create_from_options(options)
 
 
 # =========================
 # WEBCAM
 # =========================
 
-cap = cv2.VideoCapture(
-    0,
-    cv2.CAP_DSHOW
-)
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
 if not cap.isOpened():
     print("Webcam tidak dapat dibuka.")
@@ -101,13 +83,8 @@ if not cap.isOpened():
 # VARIABEL
 # =========================
 
-buffer = deque(
-    maxlen=SEQUENCE_LENGTH
-)
-
-recent = deque(
-    maxlen=STABLE_COUNT
-)
+buffer = deque(maxlen=SEQUENCE_LENGTH)
+recent = deque(maxlen=STABLE_COUNT)
 
 transcript = []
 
@@ -137,21 +114,15 @@ def pretty(name):
 
 
 def draw_hands(frame, result):
-
     h, w, _ = frame.shape
 
     for hand in result.hand_landmarks:
-
         pts = [
-            (
-                int(lm.x * w),
-                int(lm.y * h)
-            )
+            (int(lm.x * w), int(lm.y * h))
             for lm in hand
         ]
 
         for a, b in HAND_CONNECTIONS:
-
             cv2.line(
                 frame,
                 pts[a],
@@ -161,7 +132,6 @@ def draw_hands(frame, result):
             )
 
         for point in pts:
-
             cv2.circle(
                 frame,
                 point,
@@ -183,11 +153,8 @@ while True:
         print("Webcam tidak dapat dibaca.")
         break
 
-    # Sama dengan saat pengambilan dataset
-    frame = cv2.flip(
-        frame,
-        1
-    )
+    # Sama seperti saat pengambilan dataset
+    frame = cv2.flip(frame, 1)
 
     rgb = cv2.cvtColor(
         frame,
@@ -200,8 +167,7 @@ while True:
     )
 
     ts = int(
-        (time.time() - start_time)
-        * 1000
+        (time.time() - start_time) * 1000
     )
 
     if ts <= last_ts:
@@ -220,10 +186,7 @@ while True:
 
     frame_count += 1
 
-    draw_hands(
-        frame,
-        result
-    )
+    draw_hands(frame, result)
 
 
     # =========================
@@ -242,18 +205,13 @@ while True:
 
         hand_frames = int(
             np.sum(
-                np.any(
-                    seq != 0,
-                    axis=1
-                )
+                np.any(seq != 0, axis=1)
             )
         )
 
         if hand_frames >= MIN_HAND_FRAMES:
 
-            normalized = normalize_sequence(
-                seq
-            )
+            normalized = normalize_sequence(seq)
 
             x = torch.from_numpy(
                 normalized
@@ -278,20 +236,9 @@ while True:
 
             predicted_label = labels[idx]
 
-            is_ignored = (
-                predicted_label
-                in IGNORE_LABELS
-            )
 
-
-            # =========================
-            # UNKNOWN / VALID
-            # =========================
-
-            if (
-                conf >= CONF_THRESHOLD
-                and not is_ignored
-            ):
+            # Hanya terima prediksi >= 70%
+            if conf >= CONF_THRESHOLD:
 
                 live_text = (
                     f"{pretty(predicted_label)} "
@@ -302,16 +249,12 @@ while True:
 
             else:
 
-                live_text = (
-                    f"UNKNOWN "
-                    f"({conf * 100:.0f}%)"
-                )
-
+                live_text = ""
                 recent.append(-1)
 
 
             # =========================
-            # CEK STABIL
+            # CEK PREDIKSI STABIL
             # =========================
 
             if (
@@ -327,22 +270,14 @@ while True:
                 now = time.time()
 
                 shown_label = word
-
-                shown_until = (
-                    now + HOLD_SECONDS
-                )
+                shown_until = now + HOLD_SECONDS
 
                 if (
                     word != last_added
-                    or
-                    now - last_added_time
-                    > REPEAT_GAP
+                    or now - last_added_time > REPEAT_GAP
                 ):
 
-                    transcript.append(
-                        word
-                    )
-
+                    transcript.append(word)
                     last_added = word
 
                 last_added_time = now
@@ -361,12 +296,10 @@ while True:
 
     fps = (
         0.9 * fps
-        +
-        0.1
+        + 0.1
         * (
             1.0
-            /
-            max(
+            / max(
                 now - prev_time,
                 1e-6
             )
@@ -390,8 +323,6 @@ while True:
         -1
     )
 
-
-    # Kata yang berhasil dikenali
     if now < shown_until:
 
         cv2.putText(
